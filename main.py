@@ -104,12 +104,14 @@ async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ConversationHandler.END
 
-# --- Delete all (admin only) ---
-async def admin_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id == ADMIN_ID and 'видалити' in update.message.text.lower():
+# --- /clean ---
+async def clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id == ADMIN_ID:
         c.execute("DELETE FROM thanks")
         conn.commit()
-        await update.message.reply_text("🗑️ Всі подяки видалено.")
+        await update.message.reply_text("🧹 Усі вдячності очищено!")
+    else:
+        await update.message.reply_text("🚫 Лише адмін може чистити базу!")
 
 # --- Router ---
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -145,8 +147,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv_thanks)
     app.add_handler(conv_export)
+    app.add_handler(CommandHandler("clean", clean))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, admin_delete))
 
     app.run_polling()
 

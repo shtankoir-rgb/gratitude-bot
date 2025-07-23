@@ -1,6 +1,10 @@
+import os
 import sqlite3
 import logging
+import threading
+import asyncio
 from datetime import datetime, timedelta
+from flask import Flask
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
@@ -10,7 +14,7 @@ from telegram.ext import (
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
 
-# --- Conversation states ---
+# --- States ---
 ASK_NAME, ASK_TEXT, EXPORT_CHOICE = range(3)
 
 # --- Database ---
@@ -28,7 +32,17 @@ conn.commit()
 
 ADMIN_ID = 389322406
 
-# --- /start ---
+# --- Flask app for Railway keep-alive ---
+flask_app = Flask(__name__)
+
+@flask_app.route("/")
+def index():
+    return "Bot is alive"
+
+def run_flask():
+    flask_app.run(host="0.0.0.0", port=10000)
+
+# --- Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup(
         [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
@@ -38,7 +52,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👋 Привіт! Обери дію нижче або скористайся командами:", reply_markup=keyboard
     )
 
-# --- /thanks ---
 async def thanks_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🙋‍♀️ Кому хочеш подякувати?")
     return ASK_NAME
@@ -61,7 +74,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Скасовано. Але ми завжди раді твоїм добрим словам 🙌")
     return ConversationHandler.END
 
-# --- /export ---
 async def export_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("🚫 Лише адмін може експортувати подяки.")
@@ -75,7 +87,6 @@ async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     days = 7 if "7" in update.message.text else 14
     since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
-    # Видаляємо старі вдячності (20+ днів)
     old_limit = (datetime.now() - timedelta(days=20)).strftime("%Y-%m-%d")
     c.execute("DELETE FROM thanks WHERE date < ?", (old_limit,))
     conn.commit()
@@ -97,14 +108,12 @@ async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
         messages.append("\n\n".join(block))
 
     full_text = "\n\n".join(messages)
-
     chunks = [full_text[i:i+4000] for i in range(0, len(full_text), 4000)]
     for chunk in chunks:
         await update.message.reply_text(chunk, parse_mode="Markdown")
 
     return ConversationHandler.END
 
-# --- /clean ---
 async def clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == ADMIN_ID:
         c.execute("DELETE FROM thanks")
@@ -113,7 +122,6 @@ async def clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("🚫 Лише адмін може чистити базу!")
 
-# --- Router ---
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txt = update.message.text
     if txt == "🙌 Надіслати вдячність":
@@ -123,7 +131,9 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Main ---
 def main():
-    import os
+    # Flask окремим потоком
+    threading.Thread(target=run_flask).start()
+
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -150,7 +160,7 @@ def main():
     app.add_handler(CommandHandler("clean", clean))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
 
-    app.run_polling()
+    asyncio.run(app.run_polling())
 
 if __name__ == "__main__":
     main()

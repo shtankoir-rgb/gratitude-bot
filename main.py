@@ -25,9 +25,9 @@ conn.commit()
 
 # --- Статичні стикери ---
 STICKERS = {
-    "start": "CAACAgIAAxkBAAEF3R1mZLhQzBlMRzZjcB6CI4Zm0bYJxAACVgADVp29CpgZyZ-5OePVNQQ",
-    "thanks_saved": "CAACAgIAAxkBAAEF3R9mZLhqu_2cR2E7ciZyTndsoMQS_QACsA0AAladvQoJ1ndUZa8w-TEE",
-    "export_ready": "CAACAgIAAxkBAAEF3SBmZLiD6DnLHGKKOgIQOYzGDqTewAACqw0AAladvQqn5mLo0U25DjEE"
+    "start": "CAACAgIAAxkBAAEF45NmZb9QkV9oS1dmdqz8RNEAFuXnbwACAgADwZxgDJUbP-vc5PiDNAQ",
+    "thanks_saved": "CAACAgIAAxkBAAEF45VmZcDA5Fu_t2O2q89QDYEXWxzcrAACBgADwZxgDAfVOvMXU85gNAQ",
+    "export_ready": "CAACAgIAAxkBAAEF45dmZcDp5uBg2SkPfTSpc8LyXvB3BwACBQADwZxgDAxz_dipbfqGNAQ"
 }
 
 # --- /start ---
@@ -90,8 +90,13 @@ async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
         block = [f"👤 *{person}*:"] + [f"📅 {d}\n💌 {t}" for d, t in entries]
         messages.append("\n\n".join(block))
 
-    output = "\n\n".join(messages)
-    await update.message.reply_text(f"📬 Вдячності за останні {days} днів:\n\n{output}", parse_mode="Markdown")
+    full_text = "\n\n".join(messages)
+
+    # Розбиваємо текст на частини до 4000 символів
+    chunks = [full_text[i:i+4000] for i in range(0, len(full_text), 4000)]
+    for chunk in chunks:
+        await update.message.reply_text(chunk, parse_mode="Markdown")
+
     await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["export_ready"])
     return ConversationHandler.END
 

@@ -1,4 +1,3 @@
-
 import sqlite3
 import logging
 from datetime import datetime, timedelta
@@ -24,18 +23,26 @@ CREATE TABLE IF NOT EXISTS thanks (
 """)
 conn.commit()
 
+# --- Статичні стикери ---
+STICKERS = {
+    "start": "CAACAgIAAxkBAAEF3R1mZLhQzBlMRzZjcB6CI4Zm0bYJxAACVgADVp29CpgZyZ-5OePVNQQ",
+    "thanks_saved": "CAACAgIAAxkBAAEF3R9mZLhqu_2cR2E7ciZyTndsoMQS_QACsA0AAladvQoJ1ndUZa8w-TEE",
+    "export_ready": "CAACAgIAAxkBAAEF3SBmZLiD6DnLHGKKOgIQOYzGDqTewAACqw0AAladvQqn5mLo0U25DjEE"
+}
+
 # --- /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привіт! Надішли /thanks щоб залишити вдячність або /export щоб отримати список вдячностей.")
+    await update.message.reply_text("👋 Привіт, легендо! Хочеш зробити день комусь теплішим? Напиши /thanks або /export — і поїхали 🚀")
+    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["start"])
 
 # --- /thanks ---
 async def thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Кому ти хочеш подякувати?")
+    await update.message.reply_text("🙋‍♀️ Кому хочеш подякувати?")
     return ASK_NAME
 
 async def ask_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["to_whom"] = update.message.text.strip()
-    await update.message.reply_text("За що саме? (можна з емодзі)")
+    await update.message.reply_text("💬 За що саме? (можна з емодзі, не стримуй себе!)")
     return ASK_TEXT
 
 async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -44,29 +51,48 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     date = datetime.now().strftime("%Y-%m-%d")
     c.execute("INSERT INTO thanks (to_whom, text, date) VALUES (?, ?, ?)", (to_whom, text, date))
     conn.commit()
-    await update.message.reply_text("Вдячність збережено ❤️")
+    await update.message.reply_text("🔥 Збережено! Тепер світ трішки кращий ❤️")
+    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["thanks_saved"])
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Скасовано")
+    await update.message.reply_text("❌ Скасовано. Але ми завжди раді твоїм добрим словам 🙌")
     return ConversationHandler.END
 
 # --- /export ---
 async def export(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup([["7 днів", "14 днів"]], one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text("За який період вивантажити вдячності?", reply_markup=keyboard)
+    await update.message.reply_text("📦 За який період витягнути вдячності?", reply_markup=keyboard)
     return 1
 
 async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     days = 7 if "7" in update.message.text else 14
     since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-    c.execute("SELECT to_whom, text, date FROM thanks WHERE date >= ? ORDER BY date DESC", (since,))
+
+    # Видаляємо вдячності старші за 20 днів
+    old_limit = (datetime.now() - timedelta(days=20)).strftime("%Y-%m-%d")
+    c.execute("DELETE FROM thanks WHERE date < ?", (old_limit,))
+    conn.commit()
+
+    c.execute("SELECT to_whom, text, date FROM thanks WHERE date >= ? ORDER BY to_whom, date", (since,))
     rows = c.fetchall()
+
     if not rows:
-        await update.message.reply_text("Немає вдячностей за обраний період.")
-    else:
-        text = "\n\n".join([f"👤 Для: {r[0]}\n📅 {r[2]}\n💬 {r[1]}" for r in rows])
-        await update.message.reply_text(f"🙌 Вдячності за останні {days} днів:\n\n{text}")
+        await update.message.reply_text("🤷‍♂️ Немає вдячностей за обраний період... Можеш це виправити 😉")
+        return ConversationHandler.END
+
+    grouped = {}
+    for to_whom, text, date in rows:
+        grouped.setdefault(to_whom, []).append((date, text))
+
+    messages = []
+    for person, entries in grouped.items():
+        block = [f"👤 *{person}*:"] + [f"📅 {d}\n💌 {t}" for d, t in entries]
+        messages.append("\n\n".join(block))
+
+    output = "\n\n".join(messages)
+    await update.message.reply_text(f"📬 Вдячності за останні {days} днів:\n\n{output}", parse_mode="Markdown")
+    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["export_ready"])
     return ConversationHandler.END
 
 # --- Main ---

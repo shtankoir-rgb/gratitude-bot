@@ -23,17 +23,9 @@ CREATE TABLE IF NOT EXISTS thanks (
 """)
 conn.commit()
 
-# --- Статичні стикери ---
-STICKERS = {
-    "start": "CAACAgIAAxkBAAEF45NmZb9QkV9oS1dmdqz8RNEAFuXnbwACAgADwZxgDJUbP-vc5PiDNAQ",
-    "thanks_saved": "CAACAgIAAxkBAAEF45VmZcDA5Fu_t2O2q89QDYEXWxzcrAACBgADwZxgDAfVOvMXU85gNAQ",
-    "export_ready": "CAACAgIAAxkBAAEF45dmZcDp5uBg2SkPfTSpc8LyXvB3BwACBQADwZxgDAxz_dipbfqGNAQ"
-}
-
 # --- /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👋 Привіт, легендо! Хочеш зробити день комусь теплішим? Напиши /thanks або /export — і поїхали 🚀")
-    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["start"])
 
 # --- /thanks ---
 async def thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -52,7 +44,6 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     c.execute("INSERT INTO thanks (to_whom, text, date) VALUES (?, ?, ?)", (to_whom, text, date))
     conn.commit()
     await update.message.reply_text("🔥 Збережено! Тепер світ трішки кращий ❤️")
-    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["thanks_saved"])
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -97,7 +88,6 @@ async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for chunk in chunks:
         await update.message.reply_text(chunk, parse_mode="Markdown")
 
-    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["export_ready"])
     return ConversationHandler.END
 
 # --- Main ---

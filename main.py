@@ -14,7 +14,7 @@ from telegram.ext import (
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
 
-# --- States ---
+# --- Conversation states ---
 ASK_NAME, ASK_TEXT, EXPORT_CHOICE = range(3)
 
 # --- Database ---
@@ -32,7 +32,7 @@ conn.commit()
 
 ADMIN_ID = 389322406
 
-# --- Flask app for Railway keep-alive ---
+# --- Flask app for pinging ---
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
@@ -40,9 +40,11 @@ def index():
     return "Bot is alive"
 
 def run_flask():
-    flask_app.run(host="0.0.0.0", port=10000)
+    # 🔽 Автоматичне використання порту Render
+    port = int(os.environ.get("PORT", 10000))
+    flask_app.run(host="0.0.0.0", port=port)
 
-# --- Handlers ---
+# --- Telegram handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup(
         [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
@@ -131,9 +133,10 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Main ---
 def main():
-    # Flask окремим потоком
+    # 🔁 Запускаємо Flask у окремому потоці
     threading.Thread(target=run_flask).start()
 
+    # 🔐 Telegram
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 

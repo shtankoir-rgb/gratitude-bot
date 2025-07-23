@@ -1,14 +1,14 @@
 import sqlite3
 import logging
 from datetime import datetime, timedelta
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
 # --- Налаштування логування ---
 logging.basicConfig(level=logging.INFO)
 
 # --- Стани розмови ---
-ASK_NAME, ASK_TEXT, EXPORT_CHOICE = range(3)
+ASK_NAME, ASK_TEXT = range(2)
 
 # --- Ініціалізація бази даних ---
 conn = sqlite3.connect("gratitude.db", check_same_thread=False)
@@ -23,16 +23,17 @@ CREATE TABLE IF NOT EXISTS thanks (
 """)
 conn.commit()
 
+# --- Статичні стикери ---
+STICKERS = {
+    "start": "CAACAgIAAxkBAAEF3R1mZLhQzBlMRzZjcB6CI4Zm0bYJxAACVgADVp29CpgZyZ-5OePVNQQ",
+    "thanks_saved": "CAACAgIAAxkBAAEF3R9mZLhqu_2cR2E7ciZyTndsoMQS_QACsA0AAladvQoJ1ndUZa8w-TEE",
+    "export_ready": "CAACAgIAAxkBAAEF3SBmZLiD6DnLHGKKOgIQOYzGDqTewAACqw0AAladvQqn5mLo0U25DjEE"
+}
+
 # --- /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🙌 Подякувати"), KeyboardButton("📦 Експорт")]],
-        resize_keyboard=True
-    )
-    await update.message.reply_text(
-        "👋 Привіт, легендо! Обери дію нижче або напиши /thanks чи /export",
-        reply_markup=keyboard
-    )
+    await update.message.reply_text("👋 Привіт, легендо! Хочеш зробити день комусь теплішим? Напиши /thanks або /export — і поїхали 🚀")
+    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["start"])
 
 # --- /thanks ---
 async def thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -51,6 +52,7 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     c.execute("INSERT INTO thanks (to_whom, text, date) VALUES (?, ?, ?)", (to_whom, text, date))
     conn.commit()
     await update.message.reply_text("🔥 Збережено! Тепер світ трішки кращий ❤️")
+    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["thanks_saved"])
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -61,7 +63,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def export(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup([["7 днів", "14 днів"]], one_time_keyboard=True, resize_keyboard=True)
     await update.message.reply_text("📦 За який період витягнути вдячності?", reply_markup=keyboard)
-    return EXPORT_CHOICE
+    return 1
 
 async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     days = 7 if "7" in update.message.text else 14
@@ -95,30 +97,18 @@ async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for chunk in chunks:
         await update.message.reply_text(chunk, parse_mode="Markdown")
 
+    await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=STICKERS["export_ready"])
     return ConversationHandler.END
 
 # --- /clean ---
 async def clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # замінити user_id нижче на твій реальний Telegram ID
-    allowed_user_id = 8003209512
-    if update.effective_user.id != allowed_user_id:
-        await update.message.reply_text("⛔ Тільки адмін може чистити базу!")
+    admin_id = 389322406  # Твій Telegram ID
+    if update.effective_user.id != admin_id:
+        await update.message.reply_text("⛔️ Тільки адмін може чистити базу! ❤️")
         return
-
-    args = context.args
-    if not args:
-        await update.message.reply_text("Напиши /clean all або /clean тест")
-        return
-
-    if args[0] == "all":
-        c.execute("DELETE FROM thanks")
-        conn.commit()
-        await update.message.reply_text("🧹 Усі вдячності видалено.")
-    else:
-        keyword = "%" + args[0] + "%"
-        c.execute("DELETE FROM thanks WHERE text LIKE ?", (keyword,))
-        conn.commit()
-        await update.message.reply_text(f"🧽 Видалено вдячності, що містять '{args[0]}'")
+    c.execute("DELETE FROM thanks")
+    conn.commit()
+    await update.message.reply_text("🧹 Базу вдячностей очищено!")
 
 # --- Main ---
 def main():
@@ -127,7 +117,7 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     conv_thanks = ConversationHandler(
-        entry_points=[CommandHandler("thanks", thanks), MessageHandler(filters.Regex("^🙌 Подякувати$"), thanks)],
+        entry_points=[CommandHandler("thanks", thanks)],
         states={
             ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_text)],
             ASK_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_thanks)],
@@ -136,9 +126,9 @@ def main():
     )
 
     conv_export = ConversationHandler(
-        entry_points=[CommandHandler("export", export), MessageHandler(filters.Regex("^📦 Експорт$"), export)],
+        entry_points=[CommandHandler("export", export)],
         states={
-            EXPORT_CHOICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, export_choose)]
+            1: [MessageHandler(filters.TEXT & ~filters.COMMAND, export_choose)]
         },
         fallbacks=[CommandHandler("cancel", cancel)]
     )

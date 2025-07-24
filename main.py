@@ -11,13 +11,9 @@ from telegram.ext import (
     filters, ContextTypes, ConversationHandler
 )
 
-# --- Logging ---
 logging.basicConfig(level=logging.INFO)
-
-# --- Conversation states ---
 ASK_NAME, ASK_TEXT, EXPORT_CHOICE = range(3)
 
-# --- Database ---
 conn = sqlite3.connect("gratitude.db", check_same_thread=False)
 c = conn.cursor()
 c.execute("""
@@ -32,7 +28,7 @@ conn.commit()
 
 ADMIN_ID = 389322406
 
-# --- Flask app ---
+# --- Flask для Render ---
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
@@ -43,7 +39,7 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host="0.0.0.0", port=port)
 
-# --- Telegram handlers ---
+# --- Telegram Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup(
         [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
@@ -58,11 +54,6 @@ async def thanks_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ASK_NAME
 
 async def ask_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # --- перевірка чи завершено вручну ---
-    if context.user_data.get("end"):
-        context.user_data["end"] = False
-        return ConversationHandler.END
-
     context.user_data["to_whom"] = update.message.text.strip()
     await update.message.reply_text("💬 За що саме? (можна з емодзі, не стримуй себе!)")
     return ASK_TEXT
@@ -105,7 +96,14 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ASK_NAME
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Скасовано. Але ми завжди раді твоїм добрим словам 🙌")
+    keyboard = ReplyKeyboardMarkup(
+        [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
+        resize_keyboard=True
+    )
+    await update.message.reply_text(
+        "✅ Гаразд, збережено! Повертаємося до головного меню 🙌",
+        reply_markup=keyboard
+    )
     return ConversationHandler.END
 
 async def export_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -162,18 +160,6 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if txt in ["🙌 надiслати вдячнiсть", "🙌 ще одну"]:
         return await thanks_entry(update, context)
 
-    elif txt == "❌ завершити":
-        context.user_data["end"] = True
-        keyboard = ReplyKeyboardMarkup(
-            [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
-            resize_keyboard=True
-        )
-        await update.message.reply_text(
-            "✅ Гаразд, збережено! Повертаємося до головного меню 🙌",
-            reply_markup=keyboard
-        )
-        return ConversationHandler.END
-
     elif txt == "📦 експорт подяк":
         return await export_entry(update, context)
 
@@ -191,7 +177,10 @@ def main():
         ],
         states={
             ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_text)],
-            ASK_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_thanks)],
+            ASK_TEXT: [
+                MessageHandler(filters.TEXT & filters.Regex("❌ Завершити"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, save_thanks)
+            ],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )

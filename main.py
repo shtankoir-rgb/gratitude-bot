@@ -32,7 +32,7 @@ conn.commit()
 
 ADMIN_ID = 389322406
 
-# --- Flask app for pinging ---
+# --- Flask app ---
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
@@ -40,7 +40,6 @@ def index():
     return "Bot is alive"
 
 def run_flask():
-    # 🔽 Автоматичне використання порту Render
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host="0.0.0.0", port=port)
 
@@ -67,8 +66,28 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     to_whom = context.user_data.get("to_whom")
     date = datetime.now().strftime("%Y-%m-%d")
+
+    # --- антиспам-фільтр ---
+    banned_inputs = [
+        "📦 експорт подяк", "🙌 надіслати вдячність",
+        "📦", "🙌", "🥰", "❤️", "💌", "😊", "😉", "👍"
+    ]
+
+    if (
+        not text
+        or len(text) < 5
+        or text.lower() in banned_inputs
+        or all(char in "❤️🥰📦🙌💌😊😉👍" for char in text.replace(" ", ""))
+    ):
+        await update.message.reply_text(
+            "⚠️ Напиши, будь ласка, справжню подяку — хоча б кілька слів 💌"
+        )
+        return ASK_TEXT
+
+    # --- Save to DB ---
     c.execute("INSERT INTO thanks (to_whom, text, date) VALUES (?, ?, ?)", (to_whom, text, date))
     conn.commit()
+
     await update.message.reply_text("❤️ Збережено! Добро шириться ✨")
     return ConversationHandler.END
 
@@ -133,10 +152,8 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Main ---
 def main():
-    # 🔁 Запускаємо Flask у окремому потоці
     threading.Thread(target=run_flask).start()
 
-    # 🔐 Telegram
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 

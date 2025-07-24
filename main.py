@@ -28,7 +28,6 @@ conn.commit()
 
 ADMIN_ID = 389322406
 
-# --- Flask для Render ---
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
@@ -39,23 +38,22 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host="0.0.0.0", port=port)
 
-# --- Telegram Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
+        [[KeyboardButton("🖌️ Надiслати вдячнiсть"), KeyboardButton("📦 Експорт подяк")]],
         resize_keyboard=True
     )
     await update.message.reply_text(
-        "👋 Привіт! Обери дію нижче або скористайся командами:", reply_markup=keyboard
+        "👋 Привiт! Обери дiю нижче або скористайся командами:", reply_markup=keyboard
     )
 
 async def thanks_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🙋‍♀️ Кому хочеш подякувати?")
+    await update.message.reply_text("👋 Кому хочеш подякувати?")
     return ASK_NAME
 
 async def ask_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["to_whom"] = update.message.text.strip()
-    await update.message.reply_text("💬 За що саме? (можна з емодзі, не стримуй себе!)")
+    await update.message.reply_text("💬 За що саме? (можна з емодзi, не стримуй себе!)")
     return ASK_TEXT
 
 async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -64,18 +62,18 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     date = datetime.now().strftime("%Y-%m-%d")
 
     banned_inputs = [
-        "📦 експорт подяк", "🙌 надіслати вдячність",
-        "📦", "🙌", "🥰", "❤️", "💌", "😊", "😉", "👍"
+        "📦 експорт подяк", "🖌️ надіслати вдячність",
+        "📦", "🖌️", "🥰", "❤️", "💌", "😊", "😉", "👍"
     ]
 
     if (
         not text
         or len(text) < 5
         or text.lower() in banned_inputs
-        or all(char in "❤️🥰📦🙌💌😊😉👍" for char in text.replace(" ", ""))
+        or all(char in "❤️🥰📦🖌️💌😊😉👍" for char in text.replace(" ", ""))
     ):
         await update.message.reply_text(
-            "⚠️ Напиши, будь ласка, справжню подяку — хоча б кілька слів 💌"
+            "⚠️ Напиши, будь ласка, справжню подяку — хоча б кiлька слiв 💌"
         )
         return ASK_TEXT
 
@@ -83,7 +81,7 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
 
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🙌 Ще одну"), KeyboardButton("❌ Завершити")]],
+        [[KeyboardButton("🖌️ Ще одну"), KeyboardButton("❌ Завершити")]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
@@ -93,26 +91,26 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard
     )
 
-    return ASK_NAME
+    return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
+        [[KeyboardButton("🖌️ Надiслати вдячнiсть"), KeyboardButton("📦 Експорт подяк")]],
         resize_keyboard=True
     )
     await update.message.reply_text(
-        "✅ Гаразд, збережено! Повертаємося до головного меню 🙌",
+        "✅ Гаразд, збережено! Повертаємося до головного меню 👌",
         reply_markup=keyboard
     )
     return ConversationHandler.END
 
 async def export_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("🚫 Лише адмін може експортувати подяки.")
+        await update.message.reply_text("🚫 Лише адмiн може експортувати подяки.")
         return ConversationHandler.END
 
-    keyboard = ReplyKeyboardMarkup([['7 днів', '14 днів']], one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text("📦 За який період витягнути вдячності?", reply_markup=keyboard)
+    keyboard = ReplyKeyboardMarkup([["7 днiв", "14 днiв"]], one_time_keyboard=True, resize_keyboard=True)
+    await update.message.reply_text("📦 За який перiод витягнути вдячностi?", reply_markup=keyboard)
     return EXPORT_CHOICE
 
 async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -127,7 +125,7 @@ async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = c.fetchall()
 
     if not rows:
-        await update.message.reply_text("🤷‍♀️ Немає подяк за обраний період...")
+        await update.message.reply_text("🤷‍♀️ Немає подяк за обраний перiод...")
         return ConversationHandler.END
 
     grouped = {}
@@ -150,11 +148,10 @@ async def clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == ADMIN_ID:
         c.execute("DELETE FROM thanks")
         conn.commit()
-        await update.message.reply_text("🧹 Усі вдячності очищено!")
+        await update.message.reply_text("🪑 Усi вдячностi очищено!")
     else:
-        await update.message.reply_text("🚫 Лише адмін може чистити базу!")
+        await update.message.reply_text("🚫 Лише адмiн може чистити базу!")
 
-# 🧼 handle_buttons без "❌ Завершити"
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txt = update.message.text.strip().lower()
 
@@ -164,7 +161,6 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif txt == "📦 експорт подяк":
         return await export_entry(update, context)
 
-# --- Main ---
 def main():
     threading.Thread(target=run_flask).start()
 

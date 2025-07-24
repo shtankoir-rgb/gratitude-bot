@@ -58,6 +58,11 @@ async def thanks_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ASK_NAME
 
 async def ask_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # --- перевірка чи завершено вручну ---
+    if context.user_data.get("end"):
+        context.user_data["end"] = False
+        return ConversationHandler.END
+
     context.user_data["to_whom"] = update.message.text.strip()
     await update.message.reply_text("💬 За що саме? (можна з емодзі, не стримуй себе!)")
     return ASK_TEXT
@@ -158,6 +163,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await thanks_entry(update, context)
 
     elif txt == "❌ завершити":
+        context.user_data["end"] = True
         keyboard = ReplyKeyboardMarkup(
             [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
             resize_keyboard=True

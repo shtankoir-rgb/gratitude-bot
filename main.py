@@ -67,7 +67,6 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     to_whom = context.user_data.get("to_whom")
     date = datetime.now().strftime("%Y-%m-%d")
 
-    # --- антиспам-фільтр ---
     banned_inputs = [
         "📦 експорт подяк", "🙌 надіслати вдячність",
         "📦", "🙌", "🥰", "❤️", "💌", "😊", "😉", "👍"
@@ -84,12 +83,21 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ASK_TEXT
 
-    # --- Save to DB ---
     c.execute("INSERT INTO thanks (to_whom, text, date) VALUES (?, ?, ?)", (to_whom, text, date))
     conn.commit()
 
-    await update.message.reply_text("❤️ Збережено! Добро шириться ✨")
-    return ConversationHandler.END
+    keyboard = ReplyKeyboardMarkup(
+        [[KeyboardButton("🙌 Ще одну"), KeyboardButton("❌ Завершити")]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+    await update.message.reply_text(
+        "❤️ Збережено! Добро шириться ✨\n\nХочеш надіслати ще одну подяку?",
+        reply_markup=keyboard
+    )
+
+    return ASK_NAME
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Скасовано. Але ми завжди раді твоїм добрим словам 🙌")
@@ -144,10 +152,14 @@ async def clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🚫 Лише адмін може чистити базу!")
 
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    txt = update.message.text
-    if txt == "🙌 Надіслати вдячність":
+    txt = update.message.text.strip().lower()
+
+    if txt in ["🙌 надiслати вдячнiсть", "🙌 ще одну"]:
         return await thanks_entry(update, context)
-    elif txt == "📦 Експорт подяк":
+    elif txt == "❌ завершити":
+        await update.message.reply_text("✅ Гаразд, збережено! Повертаємося до головного меню 🙌")
+        return ConversationHandler.END
+    elif txt == "📦 експорт подяк":
         return await export_entry(update, context)
 
 # --- Main ---
@@ -158,7 +170,10 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     conv_thanks = ConversationHandler(
-        entry_points=[CommandHandler("thanks", thanks_entry), MessageHandler(filters.Regex("🙌"), thanks_entry)],
+        entry_points=[
+            CommandHandler("thanks", thanks_entry),
+            MessageHandler(filters.Regex("🙌"), thanks_entry)
+        ],
         states={
             ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_text)],
             ASK_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_thanks)],
@@ -167,7 +182,10 @@ def main():
     )
 
     conv_export = ConversationHandler(
-        entry_points=[CommandHandler("export", export_entry), MessageHandler(filters.Regex("📦"), export_entry)],
+        entry_points=[
+            CommandHandler("export", export_entry),
+            MessageHandler(filters.Regex("📦"), export_entry)
+        ],
         states={
             EXPORT_CHOICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, export_choose)]
         },

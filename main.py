@@ -173,13 +173,15 @@ def main():
             MessageHandler(filters.Regex("🙌|надіслати"), thanks_entry)
         ],
         states={
-            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_text)],
+            ASK_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_text)
+            ],
             ASK_TEXT: [
                 MessageHandler(filters.TEXT & filters.Regex("❌ Завершити"), cancel),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, save_thanks)
-            ],
+            ]
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel)]
     )
 
     conv_export = ConversationHandler(
@@ -188,9 +190,11 @@ def main():
             MessageHandler(filters.Regex("📦"), export_entry)
         ],
         states={
-            EXPORT_CHOICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, export_choose)]
-        ],
-        fallbacks=[CommandHandler("cancel", cancel)],
+            EXPORT_CHOICE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, export_choose)
+            ]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
     )
 
     app.add_handler(CommandHandler("start", start))

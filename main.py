@@ -154,6 +154,7 @@ async def clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("🚫 Лише адмін може чистити базу!")
 
+# 🧼 handle_buttons без "❌ Завершити"
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txt = update.message.text.strip().lower()
 

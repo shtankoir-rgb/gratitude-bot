@@ -156,9 +156,18 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if txt in ["🙌 надiслати вдячнiсть", "🙌 ще одну"]:
         return await thanks_entry(update, context)
+
     elif txt == "❌ завершити":
-        await update.message.reply_text("✅ Гаразд, збережено! Повертаємося до головного меню 🙌")
+        keyboard = ReplyKeyboardMarkup(
+            [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
+            resize_keyboard=True
+        )
+        await update.message.reply_text(
+            "✅ Гаразд, збережено! Повертаємося до головного меню 🙌",
+            reply_markup=keyboard
+        )
         return ConversationHandler.END
+
     elif txt == "📦 експорт подяк":
         return await export_entry(update, context)
 

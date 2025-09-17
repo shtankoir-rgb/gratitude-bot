@@ -40,7 +40,7 @@ def run_flask():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
+        [[KeyboardButton("👌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
         resize_keyboard=True
     )
     await update.message.reply_text(
@@ -48,7 +48,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def thanks_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🙋‍♀️ Кому хочеш подякувати?")
+    await update.message.reply_text("👋 Кому хочеш подякувати?")
     return ASK_NAME
 
 async def ask_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -62,15 +62,15 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     date = datetime.now().strftime("%Y-%m-%d")
 
     banned_inputs = [
-        "📦 експорт подяк", "🙌 надіслати вдячність",
-        "📦", "🙌", "🥰", "❤️", "💌", "😊", "😉", "👍"
+        "📦 експорт подяк", "👌 надіслати вдячність",
+        "📦", "👌", "🥰", "❤️", "💌", "😊", "😉", "👍"
     ]
 
     if (
         not text
         or len(text) < 5
         or text.lower() in banned_inputs
-        or all(char in "❤️🥰📦🙌💌😊😉👍" for char in text.replace(" ", ""))
+        or all(char in "❤️🥰📦👌💌😊😉👍" for char in text.replace(" ", ""))
     ):
         await update.message.reply_text(
             "⚠️ Напиши, будь ласка, справжню подяку — хоча б кілька слів 💌"
@@ -80,8 +80,20 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     c.execute("INSERT INTO thanks (to_whom, text, date) VALUES (?, ?, ?)", (to_whom, text, date))
     conn.commit()
 
+    from_user = update.effective_user.full_name
+    admin_message = (
+        f"📥 *Нова подяка!*
+"
+        f"👤 Від: {from_user}
+"
+        f"👥 Кому: *{to_whom}*
+"
+        f"💬 _{text}_"
+    )
+    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_message, parse_mode="Markdown")
+
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🙌 Ще одну"), KeyboardButton("❌ Завершити")]],
+        [[KeyboardButton("👌 Ще одну"), KeyboardButton("❌ Завершити")]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
@@ -95,11 +107,11 @@ async def save_thanks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🙌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
+        [[KeyboardButton("👌 Надіслати вдячність"), KeyboardButton("📦 Експорт подяк")]],
         resize_keyboard=True
     )
     await update.message.reply_text(
-        "✅ Гаразд, збережено! Повертаємося до головного меню 🙌",
+        "✅ Гаразд, збережено! Повертаємось до головного меню 👌",
         reply_markup=keyboard
     )
     return ConversationHandler.END
@@ -134,7 +146,7 @@ async def export_choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     messages = []
     for person, entries in grouped.items():
-        block = [f"👤 *{person}*:"] + [f"📅 {d}\n💌 {t}" for d, t in entries]
+        block = [f"👤 *{person}*:"] + [f"📅 {d}\n💬 {t}" for d, t in entries]
         messages.append("\n\n".join(block))
 
     full_text = "\n\n".join(messages)
@@ -155,9 +167,8 @@ async def clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txt = update.message.text.strip().lower()
 
-    if "🙌" in txt:
+    if "👌" in txt:
         return await thanks_entry(update, context)
-
     elif "📦" in txt:
         return await export_entry(update, context)
 
@@ -170,7 +181,7 @@ def main():
     conv_thanks = ConversationHandler(
         entry_points=[
             CommandHandler("thanks", thanks_entry),
-            MessageHandler(filters.Regex("🙌|надіслати"), thanks_entry)
+            MessageHandler(filters.Regex("👌|надіслати"), thanks_entry)
         ],
         states={
             ASK_NAME: [
@@ -193,7 +204,7 @@ def main():
             EXPORT_CHOICE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, export_choose)
             ]
-        },
+        ],
         fallbacks=[CommandHandler("cancel", cancel)]
     )
 
